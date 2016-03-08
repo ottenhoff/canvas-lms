@@ -21,6 +21,7 @@ require 'set'
 require 'canvas/draft_state_validations'
 require 'bigdecimal'
 require_dependency 'turnitin'
+require_dependency 'vericite'
 
 class Assignment < ActiveRecord::Base
   include Workflow
@@ -33,14 +34,15 @@ class Assignment < ActiveRecord::Base
   include SearchTermHelper
   include Canvas::DraftStateValidations
   include TurnitinID
+  include VericiteID
 
   attr_accessible :title, :name, :description, :due_at, :points_possible,
     :grading_type, :submission_types, :assignment_group, :unlock_at, :lock_at,
     :group_category, :group_category_id, :peer_review_count, :anonymous_peer_reviews,
     :peer_reviews_due_at, :peer_reviews_assign_at, :grading_standard_id,
     :peer_reviews, :automatic_peer_reviews, :grade_group_students_individually,
-    :notify_of_update, :time_zone_edited, :turnitin_enabled,
-    :turnitin_settings, :context, :position, :allowed_extensions,
+    :notify_of_update, :time_zone_edited, :turnitin_enabled, :vericite_enabled,
+    :turnitin_settings, :vericite_settings, :context, :position, :allowed_extensions,
     :external_tool_tag_attributes, :freeze_on_copy,
     :only_visible_to_overrides, :post_to_sis, :integration_id, :integration_data, :moderated_grading
 
@@ -184,6 +186,8 @@ class Assignment < ActiveRecord::Base
     grade_group_students_individually
     turnitin_enabled
     turnitin_settings
+    vericite_enabled
+    vericite_settings
     allowed_extensions
     muted
     needs_grading_count
@@ -236,6 +240,9 @@ class Assignment < ActiveRecord::Base
   serialize :integration_data, Hash
 
   serialize :turnitin_settings, Hash
+  
+  serialize :vericite_settings, Hash
+  
   # file extensions allowed for online_upload submission
   serialize :allowed_extensions, Array
 
@@ -362,9 +369,33 @@ class Assignment < ActiveRecord::Base
     self.save
     return self.turnitin_settings[:current]
   end
+  
+  def create_in_vericite
+    return false unless self.context.vericite_settings
+    return true if self.vericite_settings[:current]
+    vericite = VeriCite::Client.new(*self.context.vericite_settings)
+    res = vericite.createOrUpdateAssignment(self, self.vericite_settings)
+
+    # make sure the defaults get serialized
+    self.vericite_settings = vericite_settings
+
+    if res[:assignment_id]
+      self.vericite_settings[:created] = true
+      self.vericite_settings[:current] = true
+      self.vericite_settings.delete(:error)
+    else
+      self.vericite_settings[:error] = res
+    end
+    self.save
+    return self.vericite_settings[:current]
+  end
 
   def turnitin_settings
     super.empty? ? Turnitin::Client.default_assignment_turnitin_settings : super
+  end
+  
+  def vericite_settings
+    super.empty? ? VeriCite::Client.default_assignment_vericite_settings : super
   end
 
   def turnitin_settings=(settings)
@@ -375,6 +406,16 @@ class Assignment < ActiveRecord::Base
       end
     end
     write_attribute :turnitin_settings, settings
+  end
+  
+  def vericite_settings=(settings)
+    settings = VeriCite::Client.normalize_assignment_vericite_settings(settings)
+    unless settings.blank?
+      [:created, :error].each do |key|
+        settings[key] = self.vericite_settings[key] if self.vericite_settings[key]
+      end
+    end
+    write_attribute :vericite_settings, settings
   end
 
   def self.all_day_interpretation(opts={})
@@ -1363,7 +1404,7 @@ class Assignment < ActiveRecord::Base
     Attachment.skip_thumbnails = true
     submission_fields = [:user_id, :id, :submitted_at, :workflow_state,
                          :grade, :grade_matches_current_submission,
-                         :graded_at, :turnitin_data, :submission_type, :score,
+                         :graded_at, :turnitin_data, :vericite_data, :submission_type, :score,
                          :assignment_id, :submission_comments, :excused, :updated_at].freeze
 
     comment_fields = [:comment, :id, :author_name, :created_at, :author_id,
@@ -1613,13 +1654,20 @@ class Assignment < ActiveRecord::Base
                                  else
                                    []
                                  end
+      users_with_vericite_data = if vericite_enabled?
+                                   submissions
+                                   .reject { |s| s.vericite_data.blank? }
+                                   .map(&:user)
+                                 else
+                                   []
+                                 end
       users_who_arent_excused = submissions.reject(&:excused?).map(&:user)
       reps_and_others = groups_and_ungrouped(user).map { |group_name, group_students|
         visible_group_students = group_students & visible_students_for_speed_grader(user)
         candidate_students = visible_group_students & users_who_arent_excused
         candidate_students = visible_group_students if candidate_students.empty?
 
-        representative   = (candidate_students & users_with_turnitin_data).first
+        representative   = (candidate_students & (users_with_turnitin_data || users_with_vericite_data)).first
         representative ||= (candidate_students & users_with_submissions).first
         representative ||= candidate_students.first
         others = visible_group_students - [representative]

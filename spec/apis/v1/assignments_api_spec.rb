@@ -777,6 +777,7 @@ describe AssignmentsApiController, type: :request do
         'peer_review_count' => 2,
         'group_category_id' => group_category.id,
         'turnitin_enabled' => true,
+        'vericite_enabled' => true,
         'grading_type' => 'points',
         'muted' => 'true'
       }
@@ -814,6 +815,8 @@ describe AssignmentsApiController, type: :request do
       @group_category = @course.group_categories.create!(name: "foo")
       @course.any_instantiation.expects(:turnitin_enabled?).
         at_least_once.returns true
+      @course.any_instantiation.expects(:vericite_enabled?).
+        at_least_once.returns true
       @json = api_create_assignment_in_course(@course,
         create_assignment_json(@group, @group_category)
        )
@@ -837,6 +840,7 @@ describe AssignmentsApiController, type: :request do
       expect(@json['position']).to eq 1
       expect(@json['group_category_id']).to eq @group_category.id
       expect(@json['turnitin_enabled']).to eq true
+      expect(@json['vericite_enabled']).to eq true
       expect(@json['turnitin_settings']).to eq({
         'originality_report_visibility' => 'immediate',
         's_paper_check' => true,
@@ -847,6 +851,10 @@ describe AssignmentsApiController, type: :request do
         'exclude_quoted' => true,
         'exclude_small_matches_type' => nil,
         'exclude_small_matches_value' => nil
+      })
+      expect(@json['vericite_settings']).to eq({
+        'originality_report_visibility' => 'immediate',
+        'exclude_quoted' => true
       })
       expect(@json['allowed_extensions']).to match_array [
         'docx','ppt'
@@ -888,6 +896,18 @@ describe AssignmentsApiController, type: :request do
 
       expect(response.keys).not_to include 'turnitin_enabled'
       expect(Assignment.last.turnitin_enabled).to be_falsey
+    end
+    
+    it "does not allow modifying vericite_enabled when not enabled on the context" do
+      Course.any_instance.expects(:vericite_enabled?).at_least_once.returns false
+      response = api_create_assignment_in_course(@course,
+            { 'name' => 'some assignment',
+              'vericite_enabled' => false
+            }
+       )
+
+      expect(response.keys).not_to include 'vericite_enabled'
+      expect(Assignment.last.vericite_enabled).to be_falsey
     end
 
     it "should process html content in description on create" do
@@ -1779,6 +1799,59 @@ describe AssignmentsApiController, type: :request do
         expect(@assignment.reload.turnitin_settings["blah"]).to be_nil
       end
     end
+    
+    context "when vericite is enabled on the context" do
+      before :once do
+        @assignment = @course.assignments.create!
+        acct = @course.account
+        acct.vericite_account_id = 0
+        acct.vericite_shared_secret = "blah"
+        acct.save!
+      end
+
+      it "should allow setting vericite_enabled" do
+        expect(@assignment).not_to be_vericite_enabled
+        api_update_assignment_call(@course,@assignment,{
+          'vericite_enabled' => '1',
+        })
+        expect(@assignment.reload).to be_vericite_enabled
+        api_update_assignment_call(@course,@assignment,{
+          'vericite_enabled' => '0',
+        })
+        expect(@assignment.reload).not_to be_vericite_enabled
+      end
+
+      it "should allow setting valid vericite_settings" do
+        update_settings = {
+          :originality_report_visibility => 'after_grading',
+          :exclude_quoted => '0'
+        }
+
+        json = api_update_assignment_call(@course, @assignment, {
+          :turnitin_settings => update_settings
+        })
+        expect(json["turnitin_settings"]).to eq({
+          'originality_report_visibility' => 'after_grading',
+          'exclude_quoted' => false
+        })
+
+        expect(@assignment.reload.vericite_settings).to eq({
+          'originality_report_visibility' => 'after_grading',
+          'exclude_quoted' => '0'
+        })
+      end
+
+      it "should not allow setting invalid vericite_settings" do
+        update_settings = {
+          :blah => '1'
+        }.with_indifferent_access
+
+        api_update_assignment_call(@course, @assignment, {
+          :vericite_settings => update_settings
+        })
+        expect(@assignment.reload.vericite_settings["blah"]).to be_nil
+      end
+    end
 
     context "when a non-admin tries to update a frozen assignment" do
       before :once do
@@ -2561,10 +2634,29 @@ describe AssignmentsApiController, type: :request do
         expect(result.has_key?('turnitin_enabled')).to eq true
       end
     end
+    
+    context "when vericite_enabled is true on the context" do
+      before {
+        @course.account.update_attributes! vericite_account_id: 1234,
+                                                vericite_shared_secret: 'foo',
+                                                vericite_host: 'example.com'
+        @assignment.reload
+      }
+
+      it "contains a vericite_enabled key" do
+        expect(result.has_key?('vericite_enabled')).to eq true
+      end
+    end
 
     context "when turnitin_enabled is false on the context" do
       it "does not contain a turnitin_enabled key" do
         expect(result.has_key?('turnitin_enabled')).to eq false
+      end
+    end
+    
+    context "when vericite_enabled is false on the context" do
+      it "does not contain a vericite_enabled key" do
+        expect(result.has_key?('vericite_enabled')).to eq false
       end
     end
   end
