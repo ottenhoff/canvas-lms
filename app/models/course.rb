@@ -27,7 +27,7 @@ class Course < ActiveRecord::Base
   include TimeZoneHelper
   include ContentLicenses
   include TurnitinID
-  include VeriCiteID
+  include VericiteID
 
   attr_accessor :teacher_names
   attr_writer :student_count, :primary_enrollment_type, :primary_enrollment_role_id, :primary_enrollment_rank, :primary_enrollment_state, :invitation

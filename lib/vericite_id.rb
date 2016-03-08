@@ -1,4 +1,4 @@
-module VeriCiteID
+module VericiteID
   def generate_vericite_id!
     # the reason we don't just use the global_id all the time is so that the
     # vericite_id is preserved when shard splits/etc. occur
