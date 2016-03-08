@@ -315,7 +315,7 @@ module VeriCite
       require 'net/http'
       
       
-      Rails.logger.error("VeriCite API call: sendRequest course: #{command}, assignment: #{fcmd}, settings: #{args}");
+      Rails.logger.info("VeriCite API call: sendRequest course: #{command}, assignment: #{fcmd}, settings: #{args}");
       
       
 
@@ -356,15 +356,14 @@ module VeriCite
 
       return nil if @testing
 
-      # response = VeriCite::Response.new(http_response)
-      # if response.error?
-        # Rails.logger.error("VeriCite API error for account_id #{@account_id}: error #{ response.return_code }")
-        # Rails.logger.error(params.to_json)
-        # Rails.logger.error(http_response.body)
-      # end
-      # response
-      
-      return nil
+      response = VeriCite::Response.new()
+      if response.error?
+        Rails.logger.error("VeriCite API error for account_id #{@account_id}: error #{ response.return_code }")
+        Rails.logger.error(params.to_json)
+        Rails.logger.error(http_response.body)
+      end
+      response
+
     end
   end
 end
