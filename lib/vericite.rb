@@ -17,6 +17,7 @@
 #
 
 require 'vericite/response'
+require 'vericite_api'
 
 module VeriCite
   def self.state_from_similarity_score(similarity_score)
@@ -315,9 +316,13 @@ module VeriCite
       require 'net/http'
       
       
-      Rails.logger.info("VeriCite API call: sendRequest course: #{command}, assignment: #{fcmd}, settings: #{args}");
+      Rails.logger.info("VeriCite API sendRequest: course: #{command}, assignment: #{fcmd}, settings: #{args}");
       
+      vericite_client = VeriCiteClient::ApiClient.new();
       
+      if command == :create_assignment
+        Rails.logger.info("VeriCite API sendRequest calling create_assignment");
+      end
 
       # post = args[:post] # gets deleted in prepare_params
       # params = prepare_params(command, fcmd, args)
