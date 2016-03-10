@@ -25,11 +25,13 @@ module VeriCite
     def initialize()
       # TODO: this has been overridden to always return success
       success = true
-      return_code = 1
+      @return_code = 1
+      @assignment_id = 10
     end
 
     def assignment_id
-      extract_data_at('./assignmentid')
+     # extract_data_at('./assignmentid')
+     @assignment_id
     end
 
     def css(*args)

@@ -17,7 +17,7 @@
 #
 
 require 'vericite/response'
-require 'vericite_api'
+require 'vericite_client'
 
 module VeriCite
   def self.state_from_similarity_score(similarity_score)
@@ -316,12 +316,43 @@ module VeriCite
       require 'net/http'
       
       
-      Rails.logger.info("VeriCite API sendRequest: course: #{command}, assignment: #{fcmd}, settings: #{args}");
+      Rails.logger.info("VeriCite API sendRequest: course: #{command}, assignment: #{fcmd}, settings: #{args}, host: #{@host}")
       
-      vericite_client = VeriCiteClient::ApiClient.new();
+      vericite_config = VeriCiteClient::Configuration.new()
+      vericite_config.host = @host
+      vericite_config.base_path = '/api/v1' 
+      # TODO remove
+      vericite_config.debugging = true
+      api_client = VeriCiteClient::ApiClient.new(vericite_config)
+      vericite_client = VeriCiteClient::DefaultApi.new(api_client)
       
+      user = args.delete :user
+      course = args.delete :course
+      assignment = args.delete :assignment
+      # default response is "ok" since VeriCite doesn't implement all functions      
+      response = VeriCite::Response.new()
       if command == :create_assignment
-        Rails.logger.info("VeriCite API sendRequest calling create_assignment");
+        Rails.logger.info("VeriCite API sendRequest calling create_assignment")
+               
+        context_id = course.id
+        assignment_id = assignment.id
+        consumer = @account_id
+        consumer_secret = @shared_secret
+        assignment_data = VeriCiteClient::AssignmentData.new();
+        assignment_data.assignment_title = assignment.title != nil ? assignment.title : assignment_id;
+        assignment_data.assignment_instructions = assignment.description != nil ? assignment.description : ""
+        assignment_data.assignment_exclude_quotes = args["exclude_quoted"] != nil && args["exclude_quoted"] == 1 ? true : false
+        assignment_data.assignment_due_date = assignment.due_at != nil ? assignment.due_at : 0
+        assignment_data.assignment_grade = assignment.points_possible != nil ? assignment.points_possible : -1
+        
+        Rails.logger.info("VeriCite API sendRequest calling create_assignment: context_id: #{context_id}, assignment_id: #{assignment_id}, consumer: #{consumer}, consumer_secret: #{consumer_secret}, assignment_data: #{assignment_data.to_hash}, base_url: #{vericite_config.base_url}")
+        
+        vericite_client.assignments_context_id_assignment_id_post(context_id, assignment_id, consumer, consumer_secret, assignment_data)
+      elsif command == :submit_paper
+        Rails.logger.info("VeriCite API sendRequest calling submit_paper")
+      elsif command == :enroll_student
+        # not implemented, return default "ok"
+        Rails.logger.info("VeriCite API sendRequest calling enroll_student")
       end
 
       # post = args[:post] # gets deleted in prepare_params
@@ -361,7 +392,7 @@ module VeriCite
 
       return nil if @testing
 
-      response = VeriCite::Response.new()
+      
       if response.error?
         Rails.logger.error("VeriCite API error for account_id #{@account_id}: error #{ response.return_code }")
         Rails.logger.error(params.to_json)

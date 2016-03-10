@@ -21,44 +21,7 @@ describe 'DefaultApi' do
     end
   end
 
-  # unit tests for admin_consumer_new_consumer_key_create_post
-  # 
-  # Request to create a new consumer
-  # @param new_consumer_key Key for the new consumer
-  # @param consumer requesting consumer
-  # @param consumer_secret requesting consumer secret
-  # @param consumer_data 
-  # @param [Hash] opts the optional parameters
-  # @return [ConsumerResponse]
-  describe 'admin_consumer_new_consumer_key_create_post test' do
-    it "should work" do
-      # assertion here
-      # should be_a()
-      # should be_nil
-      # should ==
-      # should_not ==
-    end
-  end
-
-  # unit tests for admin_consumer_new_consumer_key_update_put
-  # 
-  # Request to update an existing consumer
-  # @param new_consumer_key Key for the consumer to update
-  # @param consumer requesting consumer
-  # @param consumer_secret requesting consumer secret
-  # @param consumer_data 
-  # @param [Hash] opts the optional parameters
-  # @return [ConsumerResponse]
-  describe 'admin_consumer_new_consumer_key_update_put test' do
-    it "should work" do
-      # assertion here
-      # should be_a()
-      # should be_nil
-      # should ==
-      # should_not ==
-    end
-  end
-
+  
   # unit tests for assignments_context_id_assignment_id_post
   # 
   # Create/update assignment

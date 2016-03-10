@@ -1,5 +1,6 @@
 # -*- encoding: utf-8 -*-
-$:.push File.expand_path("../lib", __FILE__)
+lib = File.expand_path('../lib', __FILE__)
+$LOAD_PATH.unshift(lib) unless $LOAD_PATH.include?(lib)
 
 Gem::Specification.new do |s|
   s.name        = "vericite_api"
@@ -13,8 +14,8 @@ Gem::Specification.new do |s|
   s.license     = "MIT"
 
 
-  s.add_dependency 'typhoeus', '0.3.3'
-  s.add_dependency 'json', '~> 1.4', '>= 1.4.6'
+  s.add_runtime_dependency 'typhoeus', '~> 0.2', '>= 0.2.1'
+  s.add_runtime_dependency 'json', '~> 1.4', '>= 1.4.6'
 
   s.add_development_dependency 'rspec', '~> 3.2', '>= 3.2.0'
   s.add_development_dependency 'vcr', '~> 2.9', '>= 2.9.3'
