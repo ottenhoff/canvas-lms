@@ -6,8 +6,8 @@ VeriCiteV1
 require 'date'
 require 'json'
 require 'logger'
+require 'net/https'
 require 'tempfile'
-require 'typhoeus'
 require 'uri'
 
 module VeriCiteClient
@@ -38,8 +38,7 @@ module VeriCiteClient
     # @return [Array<(Object, Fixnum, Hash)>] an array of 3 elements:
     #   the data deserialized from response body (could be nil), response status code and response headers.
     def call_api(http_method, path, opts = {})
-      request = build_request(http_method, path, opts)
-      response = request.run
+      response = build_request(http_method, path, opts)
 
       if @config.debugging
         @config.logger.debug "HTTP response body ~BEGIN~\n#{response.body}\n~END~\n"
@@ -75,13 +74,7 @@ module VeriCiteClient
         :headers => header_params,
         :params => query_params,
         :timeout => @config.timeout,
-        :ssl_verifypeer => @config.verify_ssl,
-        :sslcert => @config.cert_file,
-        :sslkey => @config.key_file,
-        :verbose => @config.debugging
       }
-
-      req_opts[:cainfo] = @config.ssl_ca_cert if @config.ssl_ca_cert
 
       if [:post, :patch, :put, :delete].include?(http_method)
         req_body = build_request_body(header_params, form_params, opts[:body])
@@ -91,7 +84,23 @@ module VeriCiteClient
         end
       end
 
-      Typhoeus::Request.new(url, req_opts)
+      uri = URI.parse(url)
+      https = Net::HTTP.new(uri.host,uri.port)
+      https.use_ssl = true
+      https.read_timeout = @config.timeout
+
+      case http_method
+      when 'put'
+        req = Net::HTTP::Put.new(uri.path, req_body, header_params)
+      when 'post'
+        req = Net::HTTP::Post.new(uri.path, req_body, header_params)
+      when 'get'
+        req = Net::HTTP::Get.new(uri.path, req_body, header_params)
+      when 'delete'
+        req = Net::HTTP::Delete.new(uri.path, req_body, header_params)
+      end
+
+      res = https.request(req)
     end
 
     # Check if the given MIME is a JSON MIME.
