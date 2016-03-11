@@ -67,18 +67,8 @@ module VeriCiteClient
       query_params = opts[:query_params] || {}
       form_params = opts[:form_params] || {}
 
-      
-
-      req_opts = {
-        :method => http_method,
-        :headers => header_params,
-        :params => query_params,
-        :timeout => @config.timeout,
-      }
-
       if [:post, :patch, :put, :delete].include?(http_method)
         req_body = build_request_body(header_params, form_params, opts[:body])
-        req_opts.update :body => req_body
         if @config.debugging
           @config.logger.debug "HTTP request body param ~BEGIN~\n#{req_body}\n~END~\n"
         end
@@ -87,20 +77,29 @@ module VeriCiteClient
       uri = URI.parse(url)
       https = Net::HTTP.new(uri.host,uri.port)
       https.use_ssl = true
-      https.read_timeout = @config.timeout
+      #https.read_timeout = @config.timeout
+
+      @config.logger.debug "HTTP method #{http_method}\n"
 
       case http_method
-      when 'put'
-        req = Net::HTTP::Put.new(uri.path, req_body, header_params)
-      when 'post'
-        req = Net::HTTP::Post.new(uri.path, req_body, header_params)
-      when 'get'
-        req = Net::HTTP::Get.new(uri.path, req_body, header_params)
-      when 'delete'
-        req = Net::HTTP::Delete.new(uri.path, req_body, header_params)
+        when 'put'
+          req = Net::HTTP::Put.new(uri.path)
+        when 'post'
+          req = Net::HTTP::Post.new(uri.path)
+        when 'delete'
+          req = Net::HTTP::Delete.new(uri.path)
+        else
+          req = Net::HTTP::Get.new(uri.path)
       end
 
-      res = https.request(req)
+      req.add_field("consumer", "longsight")
+      req.add_field("consumerSecret", "123456")
+
+      #req.initialize_http_header(header_params)
+
+      @config.logger.debug "HTTP request #{req}\n"
+
+      https.request(req)
     end
 
     # Check if the given MIME is a JSON MIME.
