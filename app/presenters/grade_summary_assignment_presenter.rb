@@ -121,6 +121,15 @@ class GradeSummaryAssignmentPresenter
     t.try(:[], :state) ? t : nil
   end
 
+  def vericite
+    t = if is_text_entry?
+          submission.vericite_data[submission.asset_string]
+        elsif is_online_upload? && file
+          submission.vericite_data[file.asset_string]
+        end
+    t.try(:[], :state) ? t : nil
+  end
+
   def grade_distribution
     @grade_distribution ||= begin
       if stats = @summary.assignment_stats[assignment.id]
@@ -138,7 +147,7 @@ class GradeSummaryAssignmentPresenter
   end
 
   def file
-    @file ||= submission.attachments.detect{|a| submission.turnitin_data && submission.turnitin_data[a.asset_string] }
+    @file ||= submission.attachments.detect{|a| ((submission.turnitin_data && submission.turnitin_data[a.asset_string]) || (submission.vericite_data && submission.vericite_data[a.asset_string])) }
   end
 
   def comments

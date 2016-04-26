@@ -19,6 +19,13 @@ module SpeedGraderCommon
     @submission.save!
   end
 
+  def set_vericite_asset(asset, asset_data)
+    @submission.vericite_data ||= {}
+    @submission.vericite_data[asset.asset_string] = asset_data
+    @submission.vericite_data_changed!
+    @submission.save!
+  end
+
   def create_and_enroll_students(num_to_create)
     @students = []
     num_to_create.times do |i|
