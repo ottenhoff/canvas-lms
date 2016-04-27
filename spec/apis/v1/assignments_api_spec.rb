@@ -766,6 +766,7 @@ describe AssignmentsApiController, :include_lti_spec_helpers, type: :request do
         'peer_review_count' => 2,
         'group_category_id' => group_category.id,
         'turnitin_enabled' => true,
+        'vericite_enabled' => true,
         'grading_type' => 'points',
         'muted' => 'true'
       }
@@ -803,6 +804,8 @@ describe AssignmentsApiController, :include_lti_spec_helpers, type: :request do
       @group_category = @course.group_categories.create!(name: "foo")
       @course.any_instantiation.expects(:turnitin_enabled?).
         at_least_once.returns true
+      @course.any_instantiation.expects(:vericite_enabled?).
+        at_least_once.returns true
       @json = api_create_assignment_in_course(@course,
         create_assignment_json(@group, @group_category)
        )
@@ -826,6 +829,7 @@ describe AssignmentsApiController, :include_lti_spec_helpers, type: :request do
       expect(@json['position']).to eq 1
       expect(@json['group_category_id']).to eq @group_category.id
       expect(@json['turnitin_enabled']).to eq true
+      expect(@json['vericite_enabled']).to eq true
       expect(@json['turnitin_settings']).to eq({
         'originality_report_visibility' => 'immediate',
         's_paper_check' => true,
@@ -877,6 +881,18 @@ describe AssignmentsApiController, :include_lti_spec_helpers, type: :request do
 
       expect(response.keys).not_to include 'turnitin_enabled'
       expect(Assignment.last.turnitin_enabled).to be_falsey
+    end
+    
+    it "does not allow modifying vericite_enabled when not enabled on the context" do
+      Course.any_instance.expects(:vericite_enabled?).at_least_once.returns false
+      response = api_create_assignment_in_course(@course,
+            { 'name' => 'some assignment',
+              'vericite_enabled' => false
+            }
+       )
+
+      expect(response.keys).not_to include 'vericite_enabled'
+      expect(Assignment.last.vericite_enabled).to be_falsey
     end
 
     it "should process html content in description on create" do
